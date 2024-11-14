@@ -19,3 +19,4 @@ class LLM(ABC):
             Any: The response from the language model.
         """
         pass
+        
