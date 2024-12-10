@@ -9,20 +9,29 @@ import pandas as pd
 logger.Logger.get_root_logger("emotibot_scorer")
 
 bot = MistralApi(api_key=MISTRAL_KEY, model="mistral-large-latest")
-db = MongoConversationStore(MONGO_URI,"EMOTI","CONVERSATIONS")
-all_chats= db.get_all()
+db = MongoConversationStore(MONGO_URI, "EMOTI", "CONVERSATIONS")
+all_chats = db.get_all()
 phq9 = PHQ9(bot)
-for conver in all_chats[::-1]:
-    current = conver["general_history"][-10:]
-    current = list(map(lambda d: json.dumps(d),current))
+
+# Find the longest conversation
+longest_conversation = max(all_chats, key=lambda conver: len(conver["general_history"]))
+history = longest_conversation["general_history"]
+res=[]
+# Process conversation in batches of 10
+batch_size = 10
+for start_idx in range(0, len(history), batch_size):
+    batch = history[start_idx:start_idx + batch_size]
+    batch = list(map(lambda d: json.dumps(d), batch))
+    
     result = []
-    for i in range(len(current) // 2):
-        user = current[2*i]
-        docteur = current[2*i+1]
+    for i in range(len(batch) // 2):
+        user = batch[2 * i]
+        docteur = batch[2 * i + 1]
         final_query = f"User Thoughts : {user}"
         result.append(phq9.get_answers(final_query))
     
+    # Create a DataFrame to handle the results
     df = pd.DataFrame(result)
-    final_result =  df.sum()
-    print(final_result)
-    break
+    final_result = df.sum()  # Aggregate the results
+    res.append(final_result.sum())
+print(res)
